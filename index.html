@@ -1,0 +1,157 @@
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>sample</title>
+	<script src="Box2D.js"></script>
+	<script src="Three.js"></script>
+	<script src="physics.js"></script>
+	<script src="renderer.js"></script>
+	<script src="stats.js"></script>
+
+	<style>
+	body, html {
+		margin: 0;
+		padding: 0;
+	}
+	canvas { 
+		width: 100%; 
+		height: 100%;
+	}		
+	.stats {
+		position: fixed;
+		top: 0;
+		left: 0;
+		height : 30px;
+	}
+	</style>
+</head>
+<body>
+
+
+	<script>
+//requestAnimFrame를 호출하는 함수
+window.requestAnimFrame = (function(){
+	return  window.requestAnimationFrame       || 
+	window.webkitRequestAnimationFrame || 
+	window.mozRequestAnimationFrame    || 
+	window.oRequestAnimationFrame      || 
+	window.msRequestAnimationFrame     || 
+	function(/* function */ callback, /* DOMElement */ element){
+		window.setTimeout(callback, 1000 / 60);
+	};
+})();
+</script>
+
+
+
+<script>
+var stats = new Stats();
+document.body.appendChild(stats.domElement);
+
+var SCALE = 40;
+var NULL_CENTER = {x:null, y:null};
+
+	//Entity를 정의하는 함수
+	function Entity(id, x, y, angle, center, color) {
+		this.id = id;
+		this.x = x;
+		this.y = y;
+		this.angle = angle || 0;
+		this.center = center;
+		this.color = color || "red";
+	}
+
+		//받아 온 state를 가지고 Entity의 상태를 update 한다.
+		Entity.prototype.update = function(state) {
+			this.x = state.x;
+			this.y = state.y;
+			this.center = state.c;
+			this.angle = state.a;
+		}
+
+		//CircleEntity를 정의한다.
+		function CircleEntity(id, x, y, angle, center, color, radius) {
+			color = color || 'aqua';
+			Entity.call(this, id, x, y, angle, center, color);
+			this.radius = radius;
+		}
+		CircleEntity.prototype = new Entity();
+		CircleEntity.prototype.constructor = CircleEntity;
+
+		//Rect Entity를 정의한다.
+		function RectangleEntity(id, x, y, angle, center, color, halfWidth, halfHeight) {
+			Entity.call(this, id, x, y, angle, center, color);
+			this.halfWidth = halfWidth;
+			this.halfHeight = halfHeight;
+		}
+		RectangleEntity.prototype = new Entity();
+		RectangleEntity.prototype.constructor = RectangleEntity;
+
+		function PolygonEntity(id, x, y, angle, center, color, polys) {
+			Entity.call(this, id, x, y, angle, center, color);
+			this.polys = polys;
+		}
+		PolygonEntity.prototype = new Entity();
+		PolygonEntity.prototype.constructor = PolygonEntity;
+
+	//Entity에 맞는 객체를 리턴시켜주는 역할을 함
+	Entity.build = function(def) {
+		if (def.radius) {
+			return new CircleEntity(def.id, def.x, def.y, def.angle, NULL_CENTER, def.color, def.radius);
+		} else if (def.polys) {
+			return new PolygonEntity(def.id, def.x, def.y, def.angle, NULL_CENTER, def.color, def.polys);
+		} else {
+			return new RectangleEntity(def.id, def.x, def.y, def.angle, NULL_CENTER, def.color, def.halfWidth, def.halfHeight);
+		}
+	}
+
+	//여기서부터 화면에 그리기 위해 필요한 함수들
+	var world = {};
+	var needToDraw = true;
+
+	var initialState = [
+	{id: "ground", x: 0, y: -20, color: 'violet', halfWidth:window.innerWidth*5/SCALE, halfHeight : window.innerHeight*3/SCALE},
+	{id: "shootingStick", x: 0, y: 0, color: 'yellow', halfWidth:2, halfHeight : 10, depth : 10},
+	{id: "ball_0", x: -30, y: 0, radius: 5, color:'yellow'},
+	{id: "ball_1", x:30, y: 0, radius: 5, color:'yellow'},
+	];
+
+	var worker = new Worker('physics.js');
+
+	function init() {
+		for (var i = 0; i < initialState.length; i++) {
+			world[initialState[i].id] = Entity.build(initialState[i]);
+		}
+		drawer.draw();
+		worker.postMessage({'cmd': 'bodies', 'msg': world});
+	}
+
+	//webWorker를 선언해 준다.
+
+	//worker에게 Msg를 날린다.
+
+	//message를 받으면 실행되는 함수. e에는 객체의 state가 담겨 있다.
+	worker.onmessage = function(e) {
+		var bodiesState = e.data.w; //world객체를 받아서 저장한다.
+		for (var id in bodiesState) {
+			var entity = world[id]; //가져와서 존재한다면 entity의 상태를 변경한다.
+			if (entity) entity.update(bodiesState[id]);
+		}
+		needToDraw = true;
+	};
+
+	drawer = new ThreeDraw(world);
+	init();
+	//main 함수로 지속적으로 loop를 돌면서 상태를 업데이트 한 걸 그린다.
+	(function loop() {
+		if(needToDraw) {
+			needToDraw = false;
+			drawer.animate();
+		}
+		stats.update();	
+		requestAnimFrame(loop);
+	})();
+	</script>
+
+</body>
+</html>
