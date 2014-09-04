@@ -18,9 +18,10 @@ function ThreeDraw(world) {
 	var Z = 90;
 	var X = 88;
 	var cameraSpeed = 10;
+	var tempX = 0;
 	EventHandler = function() {
-			document.addEventListener("keydown", moveCamera);
-			document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+		document.addEventListener("keydown", moveCamera);
+		document.addEventListener( 'mousedown', onDocumentMouseDown, false );
 	};
 	moveCamera = function(e) {
 		if(e.keyCode === LEFT) {
@@ -42,39 +43,37 @@ function ThreeDraw(world) {
 		}
 	};
 	onDocumentMouseDown = function(e) {
+		event.preventDefault();
+		var vector = new THREE.Vector3( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1, 0.5 );
+		projector.unprojectVector( vector, camera );
 
-			event.preventDefault();
+		var raycaster = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
 
-			
+		
+		var intersects = raycaster.intersectObjects(objects);
 
-				var vector = new THREE.Vector3( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1, 0.5 );
-				projector.unprojectVector( vector, camera );
+		if ( intersects.length > 0 ) {
+			intersects[0].object.material.color.setHex( Math.random() * 0xffffff );
+			this.tempX = world[intersects[0].object.id].x;
+			window.addEventListener('mousemove', function(e) {
+				worker.postMessage({'cmd': 'impulsed', 'msg': world[intersects[0].object.id]});
+			}, false);
 
-				var raycaster = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
 
-				
-				var intersects = raycaster.intersectObjects(objects);
+			// var particle = new THREE.Sprite( particleMaterial );
+			// particle.position.copy( intersects[ 0 ].point );
+			// particle.scale.x = particle.scale.y = 16;
+			// scene.add( particle );
 
-				if ( intersects.length > 0 ) {
-					intersects[0].object.material.color.setHex( Math.random() * 0xffffff );
-					console.log(intersects[0].object.position.x );
-					intersects[0].object.position.y = 200;
-					console.log(intersects[0].object.position.x);
+		}
+		/*
+		// Parse all the faces
+		for ( var i in intersects ) {
 
-					// var particle = new THREE.Sprite( particleMaterial );
-					// particle.position.copy( intersects[ 0 ].point );
-					// particle.scale.x = particle.scale.y = 16;
-					// scene.add( particle );
+			intersects[ i ].face.material[ 0 ].color.setHex( Math.random() * 0xffffff | 0x80000000 );
 
-				}
-				/*
-				// Parse all the faces
-				for ( var i in intersects ) {
-
-					intersects[ i ].face.material[ 0 ].color.setHex( Math.random() * 0xffffff | 0x80000000 );
-
-				}
-				*/
+		}
+		*/
 	};
 
 	this.draw = function() {
@@ -102,6 +101,7 @@ function ThreeDraw(world) {
 			mesh.position.x = world[i].x;
 			mesh.position.y = world[i].y;
 			mesh.position.z = -50
+			mesh.id = world[i].id;
 
 			objects.push(mesh);
 

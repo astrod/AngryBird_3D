@@ -110,7 +110,7 @@ var NULL_CENTER = {x:null, y:null};
 	var needToDraw = true;
 
 	var initialState = [
-	{id: "ground", x: 0, y: -20, color: 'violet', halfWidth:window.innerWidth*5/SCALE, halfHeight : window.innerHeight*3/SCALE},
+	{id: "ground", x: 0, y: -30, color: 'violet', halfWidth:window.innerWidth*5/SCALE, halfHeight : window.innerHeight*3/SCALE},
 	{id: "shootingStick", x: 0, y: 0, color: 'yellow', halfWidth:2, halfHeight : 10, depth : 10},
 	{id: "ball_0", x: -30, y: 0, radius: 5, color:'yellow'},
 	{id: "ball_1", x:30, y: 0, radius: 5, color:'yellow'},
@@ -125,10 +125,6 @@ var NULL_CENTER = {x:null, y:null};
 		drawer.draw();
 		worker.postMessage({'cmd': 'bodies', 'msg': world});
 	}
-
-	//webWorker를 선언해 준다.
-
-	//worker에게 Msg를 날린다.
 
 	//message를 받으면 실행되는 함수. e에는 객체의 state가 담겨 있다.
 	worker.onmessage = function(e) {
@@ -146,6 +142,7 @@ var NULL_CENTER = {x:null, y:null};
 	(function loop() {
 		if(needToDraw) {
 			needToDraw = false;
+			//console.log(world['ball_0'].x);
 			drawer.animate();
 		}
 		stats.update();	

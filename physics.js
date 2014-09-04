@@ -52,10 +52,11 @@
 		var start = Date.now();
 		var stepRate = (this.adaptive) ? (now - this.lastTimestamp) / 1000 : (1 / this.intervalRate);
 		this.world.Step( //물리연산을 Box2D에서 해 주는 과정
-					 stepRate   //frame-rate
-				,  10       //velocity iterations
-				,  10       //position iterations
+				stepRate   //frame-rate
+				,10       //velocity iterations
+				,10       //position iterations
 				);
+		this.world.ClearForces();
 		var world = box.getState();
 		postMessage({"w": world});     
 	}
@@ -81,53 +82,51 @@
 		var bodyDef = new b2BodyDef;
 		
 		for(var id in bodyEntities) {
-			debugger;
 			var entity = bodyEntities[id];
-					//입력된 body가 지면이라면 static, 아니면 dynamic으로 설정해 준다.
-					if (entity.id == 'ground') {
-						bodyDef.type = b2Body.b2_staticBody;
-					} else {
-						bodyDef.type = b2Body.b2_dynamicBody;
+			//입력된 body가 지면이라면 static, 아니면 dynamic으로 설정해 준다.
+			if (entity.id == 'ground') {
+				bodyDef.type = b2Body.b2_staticBody;
+			} else {
+				bodyDef.type = b2Body.b2_dynamicBody;
+			}
+			
+			//body Position, 즉 물체가 wolrd의 어떤 좌표에 위치하게 되는지를 결정한다. world는 가운데를 중점으로 한다.
+			bodyDef.position.x = entity.x;
+			bodyDef.position.y = entity.y;
+			bodyDef.userData = entity.id;
+			bodyDef.angle = entity.angle;
+			var body = this.registerBody(bodyDef);
+			
+			//원인 경우
+			if (entity.radius) {
+				this.fixDef.shape = new b2CircleShape(entity.radius);
+				body.CreateFixture(this.fixDef);
+			} else if (entity.polys) { //다면체인 경우
+				for (var j = 0; j < entity.polys.length; j++) {
+					var points = entity.polys[j];
+					var vecs = [];
+					for (var i = 0; i < points.length; i++) {
+						var vec = new b2Vec2();
+						vec.Set(points[i].x, points[i].y);
+						vecs[i] = vec;
 					}
-					
-					//body Position, 즉 물체가 wolrd의 어떤 좌표에 위치하게 되는지를 결정한다. world는 가운데를 중점으로 한다.
-					bodyDef.position.x = entity.x;
-					bodyDef.position.y = entity.y;
-					bodyDef.userData = entity.id;
-					bodyDef.angle = entity.angle;
-					var body = this.registerBody(bodyDef);
-					
-					//원인 경우
-					if (entity.radius) {
-						this.fixDef.shape = new b2CircleShape(entity.radius);
-						body.CreateFixture(this.fixDef);
-					} else if (entity.polys) { //다면체인 경우
-						for (var j = 0; j < entity.polys.length; j++) {
-							var points = entity.polys[j];
-							var vecs = [];
-							for (var i = 0; i < points.length; i++) {
-								var vec = new b2Vec2();
-								vec.Set(points[i].x, points[i].y);
-								vecs[i] = vec;
-							}
-							this.fixDef.shape = new b2PolygonShape;
-							this.fixDef.shape.SetAsArray(vecs, vecs.length);
-									//다 만들면 body에 붙여준다.
-									body.CreateFixture(this.fixDef);
-								}
-					} else { //ground인 경우. 원도 아니고 polygon도 아니기 때문.
-						this.fixDef.shape = new b2PolygonShape;
-						this.fixDef.shape.SetAsBox(entity.halfWidth, entity.halfHeight);
-						body.CreateFixture(this.fixDef);
-					}
-				}
-			//body를 생성했고 연산을 할 준비가 되었다.
-			this.ready = true;
+					this.fixDef.shape = new b2PolygonShape;
+					this.fixDef.shape.SetAsArray(vecs, vecs.length);
+							//다 만들면 body에 붙여준다.
+							body.CreateFixture(this.fixDef);
+						}
+			} else { //ground인 경우. 원도 아니고 polygon도 아니기 때문.
+				this.fixDef.shape = new b2PolygonShape;
+				this.fixDef.shape.SetAsBox(entity.halfWidth, entity.halfHeight);
+				body.CreateFixture(this.fixDef);
+			}
 		}
+		//body를 생성했고 연산을 할 준비가 되었다.
+		this.ready = true;
+	}
 
 	//만들어 진 body를 world에 등록한다.
 	bTest.prototype.registerBody = function(bodyDef) {
-		debugger;
 		var body = this.world.CreateBody(bodyDef);
 		this.bodiesMap[body.GetUserData()] = body;
 		return body;
@@ -148,7 +147,6 @@
 
 	//impulse를 적용하는 함수이다. 인자로 body id,각도, 힘을 받는다.
 	bTest.prototype.applyImpulse = function(bodyId, degrees, power) {
-		debugger;
 		var body = this.bodiesMap[bodyId];
 	 	body.ApplyImpulse(new b2Vec2(Math.cos(degrees * (Math.PI / 180)) * power,
              	                    Math.sin(degrees * (Math.PI / 180)) * power),
@@ -167,14 +165,22 @@
 		switch (e.data.cmd) {
 			case 'bodies':
 				box.setBodies(e.data.msg);
-				impulseTimeout = setTimeout(function() {
-					box.applyImpulse("ball_0", 10, 5000);
-				}.bind(this), 100);
+				// impulseTimeout = setTimeout(function() {
+				// 	box.applyImpulse("ball_0", 10, 2000);
+				// }.bind(this), 100);
 				break;
 			case 'req':
 				var timing = box.update();
 				var world = box.getState();
 				postMessage({"t": timing, "w": world, "id": e.data.id});
 				break;  
+			case 'impulsed':
+				// box = new bTest(Hz, false);
+				// box.setBodies(e.data.msg);
+				debugger;
+				impulseTimeout = setTimeout(function() {
+					box.applyImpulse(e.data.msg.id, 10, 200);
+				}.bind(this), 10);
+				break;
 		}
 	}.bind(this);
