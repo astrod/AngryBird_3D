@@ -79,10 +79,11 @@ var NULL_CENTER = {x:null, y:null};
 		CircleEntity.prototype.constructor = CircleEntity;
 
 		//Rect Entity를 정의한다.
-		function RectangleEntity(id, x, y, angle, center, color, halfWidth, halfHeight) {
+		function RectangleEntity(id, x, y, angle, center, color, halfWidth, halfHeight, depth) {
 			Entity.call(this, id, x, y, angle, center, color);
 			this.halfWidth = halfWidth;
 			this.halfHeight = halfHeight;
+			this.depth = depth;
 		}
 		RectangleEntity.prototype = new Entity();
 		RectangleEntity.prototype.constructor = RectangleEntity;
@@ -101,7 +102,7 @@ var NULL_CENTER = {x:null, y:null};
 		} else if (def.polys) {
 			return new PolygonEntity(def.id, def.x, def.y, def.angle, NULL_CENTER, def.color, def.polys);
 		} else {
-			return new RectangleEntity(def.id, def.x, def.y, def.angle, NULL_CENTER, def.color, def.halfWidth, def.halfHeight);
+			return new RectangleEntity(def.id, def.x, def.y, def.angle, NULL_CENTER, def.color, def.halfWidth, def.halfHeight, def.depth);
 		}
 	}
 
@@ -110,10 +111,19 @@ var NULL_CENTER = {x:null, y:null};
 	var needToDraw = true;
 
 	var initialState = [
-	{id: "ground", x: 0, y: -30, color: 'violet', halfWidth:window.innerWidth*5/SCALE, halfHeight : window.innerHeight*3/SCALE},
-	{id: "shootingStick", x: 0, y: 0, color: 'yellow', halfWidth:2, halfHeight : 10, depth : 10},
-	{id: "ball_0", x: -30, y: 0, radius: 5, color:'yellow'},
-	{id: "ball_1", x:30, y: 0, radius: 5, color:'yellow'},
+	{id: "ground", x: 0, y: -window.innerHeight*2/SCALE, color: 'violet', halfWidth:window.innerWidth*10/SCALE, halfHeight : window.innerHeight/SCALE, depth :window.innerHeight*7/SCALE},
+	{id: "shootingStick", x: -1*window.innerWidth*6.4/SCALE, y: 0, color: 'yellow', halfWidth:window.innerHeight/SCALE/2, halfHeight : window.innerHeight*2/SCALE, depth : window.innerHeight/SCALE},
+	{id: "ball_0", x: -1*window.innerWidth*6.4/SCALE, y: window.innerHeight*5.3/SCALE, radius: 5, color:'yellow'},
+	{id: "obstacle_0", x : window.innerWidth*5/SCALE, y : 0, color : 'green', halfWidth : window.innerWidth*2/SCALE, halfHeight : window.innerHeight/2.5/SCALE, depth : window.innerHeight/SCALE}, //바닥 
+	{id: "obstacle_1", x : window.innerWidth*3.1/SCALE, y :  window.innerHeight*1.1/SCALE, color : 'yellow', halfWidth : window.innerWidth/SCALE/9.5, halfHeight : window.innerHeight/SCALE/1.89, depth : window.innerHeight/SCALE/1.89}, //왼쪽 끝 작은 사각형
+	{id: "obstacle_2", x : window.innerWidth*6.9/SCALE, y :  window.innerHeight*1.1/SCALE, color : 'yellow', halfWidth : window.innerWidth/SCALE/9.5, halfHeight : window.innerHeight/SCALE/1.89, depth : window.innerHeight/SCALE/1.89}, //오른쪽 끝 작은 사각형
+	{id: "obstacle_3", x : window.innerWidth*4.167/SCALE, y : window.innerHeight*1.1/SCALE, color : 'yellow', halfWidth : window.innerWidth/SCALE/9.5, halfHeight : window.innerHeight*2.67/SCALE, depth : window.innerHeight/SCALE/1.89}, //왼쪽에 두번째 사각형(세로로 긴)
+	{id: "obstacle_4", x : window.innerWidth*5.64/SCALE, y : window.innerHeight*1.1/SCALE, color : 'yellow', halfWidth : window.innerWidth/SCALE/9.5, halfHeight : window.innerHeight*2.67/SCALE, depth : window.innerHeight/SCALE/1.89}, //오른쪽에 두번째 사각형(세로로 긴)
+	{id: "obstacle_5", x : window.innerWidth*4.9/SCALE, y : window.innerHeight*5.3/SCALE, color : 'orange', halfWidth : window.innerWidth/SCALE/1.2, halfHeight : window.innerHeight/SCALE/4.7, depth : window.innerHeight/SCALE/1.89}, //위에 두 사각형 위에 올라가 있는 기다란 사각형(가로로 긴)
+	{id: "obstacle_6", x : window.innerWidth*4.5/SCALE, y : window.innerHeight*8/SCALE, color : 'blue', halfWidth : window.innerWidth/SCALE/9.5, halfHeight : window.innerHeight*2.67/SCALE, depth : window.innerHeight/SCALE/1.89}, //위에 가로로 긴 사각형 위에 올라가 있는 세로로 긴 사각형(왼쪽에서 첫번)
+	{id: "obstacle_7", x : window.innerWidth*5.3/SCALE, y : window.innerHeight*8/SCALE, color : 'blue', halfWidth : window.innerWidth/SCALE/9.5, halfHeight : window.innerHeight*2.67/SCALE, depth : window.innerHeight/SCALE/1.89}, //위에 가로로 긴 사각형 위에 올라가 있는 세로로 긴 사각형(왼쪽에서 두번째)
+	// {id: "obstacle_6", x : 230, y : 0, color : 'green', halfWidth : 100, halfHeight : 4, depth : 10}
+
 	];
 
 	var worker = new Worker('physics.js');

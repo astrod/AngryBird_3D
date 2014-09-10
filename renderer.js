@@ -18,10 +18,15 @@ function ThreeDraw(world) {
 	var Z = 90;
 	var X = 88;
 	var cameraSpeed = 10;
-	var tempX = 0;
+	var startX = 0;
+	var curX = 0;
+	var intersects = null;
+	var vector = null;
+	var raycaster = null;
 	EventHandler = function() {
 		document.addEventListener("keydown", moveCamera);
 		document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+		document.addEventListener( 'mouseup', onDocumentMouseUp, false );
 	};
 	moveCamera = function(e) {
 		if(e.keyCode === LEFT) {
@@ -37,51 +42,62 @@ function ThreeDraw(world) {
 		} else if(e.keyCode === E) {
 			camera.position.y += -cameraSpeed;
 		} else if(e.keyCode === Z) {
-			camera.rotation.x += -0.3;
+			camera.rotation.x += -0.1;
 		} else if(e.keyCode === X) {
-			camera.rotation.x += 0.3;
+			camera.rotation.x += 0.1;
 		}
 	};
+
+	convertCoordinates = function(eventX) {
+		return (0.223*eventX) - 100.245;
+	}
+
 	onDocumentMouseDown = function(e) {
-		event.preventDefault();
-		var vector = new THREE.Vector3( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1, 0.5 );
+		e.preventDefault();
+		getCurrentObject();
+		console.log(e.x);
+		if(intersects[0].object.id) {
+			if ( intersects.length > 0 ) {
+				console.log("mouse down");
+				startX = world[intersects[0].object.id].x;
+				curX = startX;
+				console.log(startX);
+				intersects[0].object.material.color.setHex( Math.random() * 0xffffff );
+				window.addEventListener('mousemove', onDocumentMouseMove, false);
+			}
+		}	
+	};
+
+	onDocumentMouseUp = function(e) {
+		console.log("mouseup");
+		window.removeEventListener('mousemove', onDocumentMouseMove, false);
+	};
+
+	onDocumentMouseMove = function(e) {
+		getCurrentObject();
+		if(intersects[0].object.id === "ball_0")  {
+			console.log("mouse move");
+			var convertedX = convertCoordinates(e.x);
+			world[intersects[0].object.id].x = convertedX;
+			worker.postMessage({'cmd': 'mousemove', 'msg': world[intersects[0].object.id]});
+			curX = world[intersects[0].object.id].x;
+		}	
+	};
+
+	getCurrentObject = function(e) {
+		vector = new THREE.Vector3( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1, 0.5 );
 		projector.unprojectVector( vector, camera );
-
-		var raycaster = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
-
-		
-		var intersects = raycaster.intersectObjects(objects);
-
-		if ( intersects.length > 0 ) {
-			intersects[0].object.material.color.setHex( Math.random() * 0xffffff );
-			this.tempX = world[intersects[0].object.id].x;
-			window.addEventListener('mousemove', function(e) {
-				worker.postMessage({'cmd': 'impulsed', 'msg': world[intersects[0].object.id]});
-			}, false);
-
-
-			// var particle = new THREE.Sprite( particleMaterial );
-			// particle.position.copy( intersects[ 0 ].point );
-			// particle.scale.x = particle.scale.y = 16;
-			// scene.add( particle );
-
-		}
-		/*
-		// Parse all the faces
-		for ( var i in intersects ) {
-
-			intersects[ i ].face.material[ 0 ].color.setHex( Math.random() * 0xffffff | 0x80000000 );
-
-		}
-		*/
+		raycaster = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
+		intersects = raycaster.intersectObjects(objects);
 	};
 
 	this.draw = function() {
 		EventHandler();
 		scene = new THREE.Scene();
 		camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 1000);
-		camera.position.y = 400;
-		camera.rotation.x = -1.5;
+		camera.position.y = 500;
+		camera.position.z = 250;
+		camera.rotation.x = -1;
 
 		var light = new THREE.DirectionalLight( 0xffffff );
 		light.position.set(-70, 100, 1).normalize();
@@ -93,9 +109,9 @@ function ThreeDraw(world) {
 			}else if(world[i].polys)	{ //polyEntity
 				//polys 관련 생성 로직을 추가한다.
 			}else { //RectangleEntity
-				var geometry = makeObject.Box(world[i].halfWidth, world[i].halfHeight, 100); //추후 마지막 인자를 넘겨주게 수정
+				//가로, 높이, 세
+				var geometry = makeObject.Box(world[i].halfWidth, world[i].halfHeight, world[i].depth); //추후 마지막 인자를 넘겨주게 수정
 			}
-			//debugger;
 			material[i] = makeObject.getMaterial(0x050505, world[i].color, 0x555555, 30);
 			mesh = new THREE.Mesh(geometry, material[i]);
 			mesh.position.x = world[i].x;
@@ -119,6 +135,7 @@ function ThreeDraw(world) {
 		for(var i in world) {
 			objects[count].position.x = world[i].x;
 			objects[count].position.y = world[i].y;
+			objects[count].rotation.z = world[i].angle;
 			++count;
 		}
 		this.render();

@@ -43,7 +43,7 @@
 		//ground를 정의한다. ground는 static Object이다.
 		this.fixDef = new b2FixtureDef;
 		this.fixDef.density = 1.0;
-		this.fixDef.friction = 20.5;
+		this.fixDef.friction = 0.5;
 		this.fixDef.restitution = 0.2;
 	}
 
@@ -165,22 +165,18 @@
 		switch (e.data.cmd) {
 			case 'bodies':
 				box.setBodies(e.data.msg);
-				// impulseTimeout = setTimeout(function() {
-				// 	box.applyImpulse("ball_0", 10, 2000);
-				// }.bind(this), 100);
+				impulseTimeout = setTimeout(function() {
+					box.applyImpulse("ball_0", 12, 100000000);
+				}.bind(this), 3000);
 				break;
 			case 'req':
 				var timing = box.update();
 				var world = box.getState();
 				postMessage({"t": timing, "w": world, "id": e.data.id});
 				break;  
-			case 'impulsed':
-				// box = new bTest(Hz, false);
-				// box.setBodies(e.data.msg);
-				debugger;
-				impulseTimeout = setTimeout(function() {
-					box.applyImpulse(e.data.msg.id, 10, 200);
-				}.bind(this), 10);
+			case 'mousemove':
+				box = new bTest(Hz, false);
+				box.setBodies(e.data.msg);
 				break;
 		}
 	}.bind(this);
