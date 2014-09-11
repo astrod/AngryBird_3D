@@ -52,12 +52,13 @@
 		var start = Date.now();
 		var stepRate = (this.adaptive) ? (now - this.lastTimestamp) / 1000 : (1 / this.intervalRate);
 		this.world.Step( //물리연산을 Box2D에서 해 주는 과정
-				stepRate   //frame-rate
-				,10       //velocity iterations
+				0.016   //frame-rate
+				,10      //velocity iterations
 				,10       //position iterations
 				);
 		this.world.ClearForces();
 		var world = box.getState();
+
 		postMessage({"w": world});     
 	}
 
@@ -80,9 +81,15 @@
 	bTest.prototype.setBodies = function(bodyEntities) {
 		//body를 정의한다. 즉 물체가 world의 어디에 존재하는지를 결정하게 된다.
 		var bodyDef = new b2BodyDef;
-		
+		var graveyard = [];
+
 		for(var id in bodyEntities) {
 			var entity = bodyEntities[id];
+
+			if (entity && bodyEntities[id].dead) {
+			          box.removeBody(id);
+			          graveyard.push(id);
+			}
 			//입력된 body가 지면이라면 static, 아니면 dynamic으로 설정해 준다.
 			if (entity.id == 'ground') {
 				bodyDef.type = b2Body.b2_staticBody;
@@ -121,6 +128,10 @@
 				body.CreateFixture(this.fixDef);
 			}
 		}
+		 for (var i = 0; i < graveyard.length; i++) {
+		        delete this.bodiesMap[graveyard[i]];
+		      }
+
 		//body를 생성했고 연산을 할 준비가 되었다.
 		this.ready = true;
 	}
@@ -153,12 +164,66 @@
                    		              body.GetWorldCenter());
 	}
 
+	//damage를 적용하는 callback함수이다.
+	bTest.prototype.addContactListener = function(callbacks) {
+		var listener = new Box2D.Dynamics.b2ContactListener;
+		if (callbacks.BeginContact) listener.BeginContact = function(contact) {
+			callbacks.BeginContact(contact.GetFixtureA().GetBody().GetUserData(),
+				contact.GetFixtureB().GetBody().GetUserData());
+		}
+		if (callbacks.EndContact) listener.EndContact = function(contact) {
+			callbacks.EndContact(contact.GetFixtureA().GetBody().GetUserData(),
+				contact.GetFixtureB().GetBody().GetUserData());
+		}
+		if (callbacks.PostSolve) listener.PostSolve = function(contact, impulse) {
+			callbacks.PostSolve(contact.GetFixtureA().GetBody().GetUserData(),
+				contact.GetFixtureB().GetBody().GetUserData(),
+				impulse.normalImpulses[0]);
+		}
+		this.world.SetContactListener(listener);
+	}
+
+
 	var box = new bTest(Hz, false);
+
+	box.addContactListener({
+	        BeginContact: function(idA, idB) {
+	        	console.log('b');
+	        },
+	        
+	        PostSolve: function(idA, idB, impulse) {
+		          if (impulse < 0.1) return; // playing with thresholds
+		          if(box.bodiesMap) {
+		          	     var entityA = box.bodiesMap[idA];
+			          var entityB = box.bodiesMap[idB];
+			          			        	debugger;
+
+			          entityA.hit(impulse, entityB);
+			          entityB.hit(impulse, entityA);
+		          }
+	        }
+      	});	
+
+	//entity를 삭제한다.
+	bTest.prototype.removeBody = function(id) {
+		this.world.DestroyBody(this.bodiesMap[id]);
+	}
+
+	b2Body.prototype.hit = function(impulse, source) {
+
+	      this.isHit = true;
+	      if (this.strength) {
+	        this.strength -= impulse;
+	        if (this.strength <= 0) {
+	          this.dead = true
+	        }
+	}
+      }
 
 	var loop = function() {
 		if (box.ready) box.update();
 	}
-	setInterval(loop, 1000/60);
+	setInterval(loop, 1000/240);
 
 	//메인 페이지로부터 메시지를 받으면 실행되는 콜백 함수
 	self.onmessage = function(e) {
@@ -166,7 +231,7 @@
 			case 'bodies':
 				box.setBodies(e.data.msg);
 				impulseTimeout = setTimeout(function() {
-					box.applyImpulse("ball_0", 12, 100000000);
+					box.applyImpulse("ball_0", 12, 1000000);
 				}.bind(this), 3000);
 				break;
 			case 'req':
