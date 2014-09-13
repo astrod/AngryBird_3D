@@ -1,6 +1,6 @@
 	//physics.js는 메인 페이지에서 웹 워커를 이용하여 계산을 요청하면, 계산을 한 후에 그 결과를 메인 페이지로 전달하는 역할을 한다.
 	if( 'undefined' === typeof window){
-		importScripts('Box2D.js');
+		importScripts('lib/Box2D.js');
 	}
 
 
@@ -36,7 +36,7 @@
 		this.bodiesMap = {};
 
 		this.world = new b2World(
-					new b2Vec2(0, -9.8)    //gravity
+					new b2Vec2(0, 0)    //gravity
 			 ,  true                 //allow sleep
 			 );
 
@@ -51,15 +51,29 @@
 	bTest.prototype.update = function() {
 		var start = Date.now();
 		var stepRate = (this.adaptive) ? (now - this.lastTimestamp) / 1000 : (1 / this.intervalRate);
+		var graveyard = [];
 		this.world.Step( //물리연산을 Box2D에서 해 주는 과정
-				0.016   //frame-rate
+				stepRate   //frame-rate
 				,10      //velocity iterations
 				,10       //position iterations
 				);
 		this.world.ClearForces();
+
+		for(var id in this.bodiesMap) {
+			var entity = this.bodiesMap[id];
+			if (entity && this.bodiesMap[id].dead) {
+			          box.removeBody(id);
+			          graveyard.push(id);
+			}
+		}
+		for (var i = 0; i < graveyard.length; i++) {
+		        delete this.bodiesMap[graveyard[i]];
+		}
+
 		var world = box.getState();
 
-		postMessage({"w": world});     
+		postMessage({"w": world, "g": graveyard});     
+		graveyard = [];
 	}
 
 	bTest.prototype.getState = function() {
@@ -74,22 +88,17 @@
 
 	//물건의 상세 정보를 리턴한다.
 	bTest.prototype.getBodySpec = function(b) {
-		return {x: b.GetPosition().x, y: b.GetPosition().y, a: b.GetAngle(), c: {x: b.GetWorldCenter().x, y: b.GetWorldCenter().y}};
+		return {x: b.GetPosition().x, y: b.GetPosition().y, a: b.GetAngle(), c: {x: b.GetWorldCenter().x, y: b.GetWorldCenter().y}, strength : b.strength};
 	}
 
 	//물건들을 생성한다.
 	bTest.prototype.setBodies = function(bodyEntities) {
 		//body를 정의한다. 즉 물체가 world의 어디에 존재하는지를 결정하게 된다.
 		var bodyDef = new b2BodyDef;
-		var graveyard = [];
 
 		for(var id in bodyEntities) {
 			var entity = bodyEntities[id];
 
-			if (entity && bodyEntities[id].dead) {
-			          box.removeBody(id);
-			          graveyard.push(id);
-			}
 			//입력된 body가 지면이라면 static, 아니면 dynamic으로 설정해 준다.
 			if (entity.id == 'ground') {
 				bodyDef.type = b2Body.b2_staticBody;
@@ -102,7 +111,7 @@
 			bodyDef.position.y = entity.y;
 			bodyDef.userData = entity.id;
 			bodyDef.angle = entity.angle;
-			var body = this.registerBody(bodyDef);
+			var body = this.registerBody(bodyDef, entity);
 			
 			//원인 경우
 			if (entity.radius) {
@@ -128,17 +137,14 @@
 				body.CreateFixture(this.fixDef);
 			}
 		}
-		 for (var i = 0; i < graveyard.length; i++) {
-		        delete this.bodiesMap[graveyard[i]];
-		      }
-
 		//body를 생성했고 연산을 할 준비가 되었다.
 		this.ready = true;
 	}
 
 	//만들어 진 body를 world에 등록한다.
-	bTest.prototype.registerBody = function(bodyDef) {
+	bTest.prototype.registerBody = function(bodyDef, entity) {
 		var body = this.world.CreateBody(bodyDef);
+		body.strength = entity.strength;
 		this.bodiesMap[body.GetUserData()] = body;
 		return body;
 	}
@@ -184,25 +190,22 @@
 	}
 
 
-	var box = new bTest(Hz, false);
-
-	box.addContactListener({
+	var box  = new bTest(Hz, false, 0);
+	var callbackFunc = {
 	        BeginContact: function(idA, idB) {
-	        	console.log('b');
 	        },
 	        
 	        PostSolve: function(idA, idB, impulse) {
-		          if (impulse < 0.1) return; // playing with thresholds
+		          if (impulse < 1000) return; // playing with thresholds
 		          if(box.bodiesMap) {
-		          	     var entityA = box.bodiesMap[idA];
+		          	  	var entityA = box.bodiesMap[idA];
 			          var entityB = box.bodiesMap[idB];
-			          			        	debugger;
-
 			          entityA.hit(impulse, entityB);
 			          entityB.hit(impulse, entityA);
 		          }
 	        }
-      	});	
+      	}
+
 
 	//entity를 삭제한다.
 	bTest.prototype.removeBody = function(id) {
@@ -210,11 +213,12 @@
 	}
 
 	b2Body.prototype.hit = function(impulse, source) {
-
+	console.log(impulse);
 	      this.isHit = true;
 	      if (this.strength) {
 	        this.strength -= impulse;
 	        if (this.strength <= 0) {
+	        	console.log("dead");
 	          this.dead = true
 	        }
 	}
@@ -230,14 +234,15 @@
 		switch (e.data.cmd) {
 			case 'bodies':
 				box.setBodies(e.data.msg);
-				impulseTimeout = setTimeout(function() {
-					box.applyImpulse("ball_0", 12, 1000000);
-				}.bind(this), 3000);
 				break;
-			case 'req':
-				var timing = box.update();
-				var world = box.getState();
-				postMessage({"t": timing, "w": world, "id": e.data.id});
+			case 'setGravity':
+				box.world = new b2World(new b2Vec2(0, -9.8),  true);
+				box.addContactListener(callbackFunc);	
+				box.setBodies(e.data.msg);
+				impulseTimeout = setTimeout(function() {
+					box.applyImpulse("ball_0", -1*e.data.value[0], e.data.value[1]);
+				}.bind(this), 10);
+					
 				break;  
 			case 'mousemove':
 				box = new bTest(Hz, false);

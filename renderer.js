@@ -6,6 +6,7 @@ function ThreeDraw(world) {
 	var camera = null;
 	var renderer = null;
 	var projector = null;
+	var canDeleted = [];
 	var objects = [];
 	var mesh = [];
 	var material = [];
@@ -17,9 +18,14 @@ function ThreeDraw(world) {
 	var E = 69;
 	var Z = 90;
 	var X = 88;
+	var C = 67;
+	var V = 86;
+	var R = 82;
+	var F = 70;
 	var cameraSpeed = 10;
 	var startX = 0;
-	var curX = 0;
+	var startY = 0;
+	var ready = null;
 	var intersects = null;
 	var vector = null;
 	var raycaster = null;
@@ -45,43 +51,68 @@ function ThreeDraw(world) {
 			camera.rotation.x += -0.1;
 		} else if(e.keyCode === X) {
 			camera.rotation.x += 0.1;
+		} else if(e.keyCode ===  C) {
+			camera.rotation.y += 0.1;
+		} else if(e.keyCode ===  V) {
+			camera.rotation.y += -0.1;
+		} else if(e.keyCode === R) {
+			camera.rotation.z += 0.1;
+		} else if(e.keyCode === F) {
+			camera.rotation.z += -0.1;
 		}
 	};
-
-	convertCoordinates = function(eventX) {
-		return (0.223*eventX) - 100.245;
-	}
 
 	onDocumentMouseDown = function(e) {
 		e.preventDefault();
 		getCurrentObject();
-		console.log(e.x);
-		if(intersects[0].object.id) {
+		if(intersects[0].object.id === "ball_0") { //ball_0
+			ready = true;
 			if ( intersects.length > 0 ) {
-				console.log("mouse down");
-				startX = world[intersects[0].object.id].x;
-				curX = startX;
-				console.log(startX);
-				intersects[0].object.material.color.setHex( Math.random() * 0xffffff );
+				if(startX === 0 && startY === 0) {
+					startX = intersects[0].point.x;
+					startY = intersects[0].point.y;
+				}
 				window.addEventListener('mousemove', onDocumentMouseMove, false);
+
 			}
 		}	
 	};
 
 	onDocumentMouseUp = function(e) {
-		console.log("mouseup");
-		window.removeEventListener('mousemove', onDocumentMouseMove, false);
+		getCurrentObject();
+		if(ready === true && intersects[0].object.id === "ball_0") {
+			window.removeEventListener('mousemove', onDocumentMouseMove, false);
+			var degreeAndPower = [];
+			degreeAndPower.push(calculateDegree(startX, startY, intersects[0].point.x, intersects[0].point.y) - 90);
+			degreeAndPower.push(calculateDistance(startX, startY,  intersects[0].point.x,  intersects[0].point.y)*1000);
+			for(var i in degreeAndPower) {
+				console.log(degreeAndPower[i]);
+			}
+			worker.postMessage({'cmd': 'setGravity', 'msg':world, 'value' : degreeAndPower});
+			ready = false;
+		}
 	};
 
 	onDocumentMouseMove = function(e) {
 		getCurrentObject();
 		if(intersects[0].object.id === "ball_0")  {
-			console.log("mouse move");
-			var convertedX = convertCoordinates(e.x);
-			world[intersects[0].object.id].x = convertedX;
-			worker.postMessage({'cmd': 'mousemove', 'msg': world[intersects[0].object.id]});
-			curX = world[intersects[0].object.id].x;
+			if(calculateDistance(startX, startY,  intersects[0].point.x,  intersects[0].point.y) < 50) {
+				world["ball_0"].x = intersects[0].point.x;
+				world["ball_0"].y = intersects[0].point.y;
+				worker.postMessage({'cmd': 'mousemove', 'msg': world});
+			}
 		}	
+	};
+
+	calculateDistance = function(preX, preY, curX, curY) {
+		return Math.sqrt((curX-preX)*(curX-preX)+(curY-preY)*(curY-preY));
+	};
+
+	calculateDegree = function(preX, preY, curX, curY) {
+			var conversionX = curX - preX;
+			var conversionY = curY - preY;
+			var innerProductValue = (conversionX*0 + conversionY*(-1))/Math.sqrt((conversionX*conversionX)+(conversionY*conversionY));
+			return Math.degrees(Math.acos(innerProductValue));
 	};
 
 	getCurrentObject = function(e) {
@@ -89,18 +120,26 @@ function ThreeDraw(world) {
 		projector.unprojectVector( vector, camera );
 		raycaster = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
 		intersects = raycaster.intersectObjects(objects);
+
+	};
+
+	Math.degrees = function(radians) {
+  		return radians * 180 / Math.PI;
 	};
 
 	this.draw = function() {
 		EventHandler();
 		scene = new THREE.Scene();
-		camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 1000);
-		camera.position.y = 500;
-		camera.position.z = 250;
-		camera.rotation.x = -1;
+		camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 100000);
+		camera.position.x = -300;
+		camera.position.y = 540;
+		camera.position.z = 1020;
+		camera.rotation.x = -0.4;
+		camera.rotation.y = -0.3;
+		camera.rotation.z = 0;
 
 		var light = new THREE.DirectionalLight( 0xffffff );
-		light.position.set(-70, 100, 1).normalize();
+		light.position.set(40, 110, 140).normalize();
 		scene.add(light);
 		projector = new THREE.Projector();
 		for(var i in world) {
@@ -109,15 +148,19 @@ function ThreeDraw(world) {
 			}else if(world[i].polys)	{ //polyEntity
 				//polys 관련 생성 로직을 추가한다.
 			}else { //RectangleEntity
-				//가로, 높이, 세
+				//가로, 높이, 세로
 				var geometry = makeObject.Box(world[i].halfWidth, world[i].halfHeight, world[i].depth); //추후 마지막 인자를 넘겨주게 수정
 			}
-			material[i] = makeObject.getMaterial(0x050505, world[i].color, 0x555555, 30);
+			material[i] = choiceMaterial(world[i].id);
 			mesh = new THREE.Mesh(geometry, material[i]);
 			mesh.position.x = world[i].x;
 			mesh.position.y = world[i].y;
 			mesh.position.z = -50
 			mesh.id = world[i].id;
+			mesh.rotation.z = 0;
+			if(world[i].strength) {
+				canDeleted.push(mesh);
+			}
 
 			objects.push(mesh);
 
@@ -132,7 +175,12 @@ function ThreeDraw(world) {
 	};
 	this.animate = function() {
 		var count = 0;
-		for(var i in world) {
+		for(var i in world) { //i 는 id 이고 count 는 숫자이다.
+			if(world[i].state === "dead") {
+				console.log(world[i].id);
+				var deleteTarget = findDeletedObject(world[i].id);
+				scene.remove(deleteTarget);
+			}
 			objects[count].position.x = world[i].x;
 			objects[count].position.y = world[i].y;
 			objects[count].rotation.z = world[i].angle;
@@ -143,6 +191,25 @@ function ThreeDraw(world) {
 	this.render = function() {
 		renderer.render(scene, camera );
 	};
+	
+	findDeletedObject = function(findId) {
+		for(var i in canDeleted) {
+			if(canDeleted[i].id = findId) return canDeleted[i];
+		}
+	};
+	this.getpos = function() {
+		return camera;
+	};
+
+	choiceMaterial = function(id) {
+		var splitedId = splitString(id);
+		return makeObject.getMaterial(0x050505, 'img/'+ splitedId + '.jpg', 0x555555, 30);
+	}
+
+	splitString = function(id) {
+		return id.split("_")[0];
+	}
+
 }
 
 var makeObject = {
@@ -153,8 +220,14 @@ var makeObject = {
 	Sphere : function(radius,  widthSegments, heightSegments) {
 		return new THREE.SphereGeometry(radius, widthSegments, heightSegments);
 	},
-	getMaterial : function(ambientValue, colorValue, specularValue, shininessValue) {
-	//	console.log(colorList[colorValue]);
-		return new THREE.MeshPhongMaterial( { ambient: ambientValue, color: parseInt(colorList[colorValue]), specular: specularValue, shininess: shininessValue } );
+	// getMaterial : function(ambientValue, colorValue, specularValue, shininessValue) {
+	// 	return new THREE.MeshPhongMaterial({
+	// 		map: THREE.ImageUtils.loadTexture('weed.jpg'),
+	// 	ambient: ambientValue, color: parseInt(colorList[colorValue]), specular: specularValue, shininess: shininessValue } );
+	// },
+	getMaterial : function(ambientValue, url, specularValue, shininessValue) {
+		return new THREE.MeshPhongMaterial({
+			map: THREE.ImageUtils.loadTexture(url),
+		ambient: ambientValue, specular: specularValue, shininess: shininessValue } );
 	}
 }
