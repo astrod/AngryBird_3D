@@ -80,7 +80,7 @@ function ThreeDraw(world) {
 
 	onDocumentMouseUp = function(e) {
 		getCurrentObject();
-		if(ready === true && intersects[0].object.id === "ball_0") {
+		if(ready === true && intersects[0].object.id) {
 			window.removeEventListener('mousemove', onDocumentMouseMove, false);
 			var degreeAndPower = [];
 			degreeAndPower.push(calculateDegree(startX, startY, intersects[0].point.x, intersects[0].point.y) - 90);
@@ -95,7 +95,7 @@ function ThreeDraw(world) {
 
 	onDocumentMouseMove = function(e) {
 		getCurrentObject();
-		if(intersects[0].object.id)  {
+		if(intersects[0].object.id === "ball_0")  {
 			if(calculateDistance(startX, startY,  intersects[0].point.x,  intersects[0].point.y) < 50) {
 				world["ball_0"].x = intersects[0].point.x;
 				world["ball_0"].y = intersects[0].point.y;
