@@ -22,6 +22,9 @@
 	var initTimeout = null;
 	var angleElem = 70;
 	var powerElem = 30;
+	var beforeImpulse = 0;
+	var afterImpulse = 0;
+	var intervalListener = null;
 	
 
 	//bTest를 생성한다. 
@@ -72,7 +75,7 @@
 
 		var world = box.getState();
 
-		postMessage({"w": world, "g": graveyard});     
+		postMessage({"cmd" : 'body', "w": world, "g": graveyard});     
 		graveyard = [];
 	}
 
@@ -213,20 +216,32 @@
 	}
 
 	b2Body.prototype.hit = function(impulse, source) {
-	console.log(impulse);
 	      this.isHit = true;
+	      afterImpulse += impulse;
 	      if (this.strength) {
 	        this.strength -= impulse;
 	        if (this.strength <= 0) {
 	        	console.log("dead");
 	          this.dead = true
 	        }
-	}
-      }
+		}
+    };
+
+    var checkImpulse = function() {
+    	console.log("before : " + beforeImpulse + " and after :" + afterImpulse );
+    	if(beforeImpulse === afterImpulse) {
+    		clearInterval(intervalListener);
+    		box.world = new b2World(new b2Vec2(0, 0),  true);
+    	
+    		postMessage({"cmd" : 'end'});     
+    	}
+    	beforeImpulse = afterImpulse;
+    };
+
 
 	var loop = function() {
 		if (box.ready) box.update();
-	}
+	};
 	setInterval(loop, 1000/240);
 
 	//메인 페이지로부터 메시지를 받으면 실행되는 콜백 함수
@@ -239,6 +254,8 @@
 				box.world = new b2World(new b2Vec2(0, -9.8),  true);
 				box.addContactListener(callbackFunc);	
 				box.setBodies(e.data.msg);
+				//callback 함수들
+				intervalListener = setInterval(checkImpulse, 1000);
 				impulseTimeout = setTimeout(function() {
 					box.applyImpulse("ball_0", -1*e.data.value[0], e.data.value[1]);
 				}.bind(this), 10);

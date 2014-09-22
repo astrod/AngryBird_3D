@@ -1,5 +1,5 @@
 
-var colorList = {yellow : "0xFFFF99", blue : "0x0033ff", red : "0xFF0033", green: "0x336600", violet: "0x663399", orange:"0xFF6600"};
+var colorList = {yellow : "0xFFFF99", blue : "0x0033ff", red : "0xFF0033", green: "0x336600", violet: "0x663399", orange:"0xFF6600", white:"0xFFFFFF"};
 
 function ThreeDraw(world) {
 	var scene = null;
@@ -25,10 +25,16 @@ function ThreeDraw(world) {
 	var cameraSpeed = 10;
 	var startX = 0;
 	var startY = 0;
+	var resetX = 0;
+	var resetY = 0;
+	var movedBallX = null;
+	var movedBallY = null;
 	var ready = null;
+	var beforeTime = null;
 	var intersects = null;
 	var vector = null;
 	var raycaster = null;
+	var LineMesh = null;
 	EventHandler = function() {
 		document.addEventListener("keydown", moveCamera);
 		document.addEventListener( 'mousedown', onDocumentMouseDown, false );
@@ -85,9 +91,6 @@ function ThreeDraw(world) {
 			var degreeAndPower = [];
 			degreeAndPower.push(calculateDegree(startX, startY, intersects[0].point.x, intersects[0].point.y) - 90);
 			degreeAndPower.push(calculateDistance(startX, startY,  intersects[0].point.x,  intersects[0].point.y)*1000);
-			for(var i in degreeAndPower) {
-				console.log(degreeAndPower[i]);
-			}
 			worker.postMessage({'cmd': 'setGravity', 'msg':world, 'value' : degreeAndPower});
 			ready = false;
 		}
@@ -99,6 +102,8 @@ function ThreeDraw(world) {
 			if(calculateDistance(startX, startY,  intersects[0].point.x,  intersects[0].point.y) < 50) {
 				world["ball_0"].x = intersects[0].point.x;
 				world["ball_0"].y = intersects[0].point.y;
+				scene.remove(LineMesh);
+				LineMesh = drawLine(startX, startY, intersects[0].point.x, intersects[0].point.y, "red", 5);
 				worker.postMessage({'cmd': 'mousemove', 'msg': world});
 			}
 		}	
@@ -143,6 +148,11 @@ function ThreeDraw(world) {
 		scene.add(light);
 		projector = new THREE.Projector();
 		for(var i in world) {
+			if(world[i].id === "ball_0") {
+				resetX = world[i].x;
+				resetY = world[i].y;
+				drawStartCircle(world[i].x, world[i].y);
+			}
 			if(world[i].radius) { //radiusEntity
 				var geometry = makeObject.Sphere(world[i].radius, 30, 30);
 			}else if(world[i].polys)	{ //polyEntity
@@ -167,18 +177,64 @@ function ThreeDraw(world) {
 			scene.add(mesh);
 		}
 
-
-
 		renderer = new THREE.WebGLRenderer();
 		renderer.setSize( window.innerWidth, window.innerHeight );
 		document.body.appendChild(renderer.domElement );
 	};
+
+	// this.setBall = function(id, timeStemp) {
+	// 	var mesh = findObject(id);
+	// 	if(movedBallX === null) movedBallX = mesh.position.x;
+	// 	if(movedBallY === null) movedBallY = mesh.position.y;
+		
+	// 	moveObjectFromPointToPoint(id, movedBallX, movedBallY, resetX, resetY, timeStemp);
+	// }
+
+	// moveObjectFromPointToPoint = function(id, startX, startY, endX, endY, timeStemp) {
+	// 	if(beforeTime === null) beforeTime = timeStemp;
+	// 	var progress = timeStemp - beforeTime;
+	// 	var pieceOfX = (endX-startX)/1000;
+	// 	var pieceOfY = (endY-startY)/1000;
+	// 	console.log(objects[2]);
+	// 	objects[2].position.x = objects[2].position.x+pieceOfX*progress;
+	// 	objects[2].position.y = objects[2].position.x+pieceOfY*progress;
+		
+	// 	if(progress > 1000) {
+	// 		objects[2].position.x = endX;
+	// 		objects[2].position.y = endY;
+	// 		beforeTime = null;
+	// 		reloadFlag = false;
+	// 	}
+
+	// 	renderer.render(scene, camera);
+	// };
+
+	drawStartCircle = function(xPos, yPos) {
+		var geometry = makeObject.Sphere(60, 40, 40);
+		var material = makeObject.getMaterial(0x050505, "white", 0x050505, 30);
+		material.opacity = 0.2;
+		mesh = new THREE.Mesh(geometry, material);
+		mesh.position.x = xPos-1;
+		mesh.position.y = yPos;
+		mesh.position.z = -50;		
+		mesh.id = "opacityCircle";
+		scene.add(mesh);
+	};
+
+	drawLine = function(startX, startY, endX, endY, color, width) {
+		geometry = new THREE.Geometry();
+		geometry.vertices.push(new THREE.Vector3( startX, startY), new THREE.Vector3( endX, endY));
+		var line = new THREE.Line( geometry, makeObject.Line(color, width));
+		scene.add(line);
+		return line;
+	};
+
 	this.animate = function() {
 		var count = 0;
 		for(var i in world) { //i 는 id 이고 count 는 숫자이다.
 			if(world[i].state === "dead") {
-				console.log(world[i].id);
 				var deleteTarget = findDeletedObject(world[i].id);
+
 				scene.remove(deleteTarget);
 			}
 			objects[count].position.x = world[i].x;
@@ -194,16 +250,19 @@ function ThreeDraw(world) {
 	
 	findDeletedObject = function(findId) {
 		for(var i in canDeleted) {
-			if(canDeleted[i].id = findId) return canDeleted[i];
+			if(canDeleted[i].id === findId) return canDeleted[i];
 		}
 	};
-	this.getpos = function() {
-		return camera;
-	};
+
+	findObject = function(findId) {
+		for(var i in objects) {
+			if(objects[i].id === findId) return objects[i];
+		}
+	}
 
 	choiceMaterial = function(id) {
 		var splitedId = splitString(id);
-		return makeObject.getMaterial(0x050505, 'img/'+ splitedId + '.jpg', 0x555555, 30);
+		return makeObject.getMaterialForTexture(0x050505, 'img/'+ splitedId + '.jpg', 0x555555, 30);
 	}
 
 	splitString = function(id) {
@@ -220,12 +279,14 @@ var makeObject = {
 	Sphere : function(radius,  widthSegments, heightSegments) {
 		return new THREE.SphereGeometry(radius, widthSegments, heightSegments);
 	},
-	// getMaterial : function(ambientValue, colorValue, specularValue, shininessValue) {
-	// 	return new THREE.MeshPhongMaterial({
-	// 		map: THREE.ImageUtils.loadTexture('weed.jpg'),
-	// 	ambient: ambientValue, color: parseInt(colorList[colorValue]), specular: specularValue, shininess: shininessValue } );
-	// },
-	getMaterial : function(ambientValue, url, specularValue, shininessValue) {
+	Line : function(color, width) {
+		return new THREE.LineBasicMaterial( { color: parseInt(colorList[color]), linewidth : width} );
+	},
+	getMaterial : function(ambientValue, colorValue, specularValue, shininessValue) {
+		return new THREE.MeshPhongMaterial({
+			ambient: ambientValue, color: parseInt(colorList[colorValue]), specular: specularValue, shininess: shininessValue, transparent: true} );
+	},
+	getMaterialForTexture : function(ambientValue, url, specularValue, shininessValue) {
 		return new THREE.MeshPhongMaterial({
 			map: THREE.ImageUtils.loadTexture(url),
 		ambient: ambientValue, specular: specularValue, shininess: shininessValue } );
