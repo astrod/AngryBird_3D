@@ -255,9 +255,9 @@
 				box.addContactListener(callbackFunc);	
 				box.setBodies(e.data.msg);
 				//callback 함수들
-				intervalListener = setInterval(checkImpulse, 1000);
+				intervalListener = setInterval(checkImpulse, 3000);
 				impulseTimeout = setTimeout(function() {
-					box.applyImpulse("ball_0", -1*e.data.value[0], e.data.value[1]);
+					box.applyImpulse(e.data.ballCount, -e.data.value[0], e.data.value[1]);
 				}.bind(this), 10);
 					
 				break;  

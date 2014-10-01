@@ -36,7 +36,7 @@ text2.style.position = 'absolute';
 text2.style.width = 500;
 text2.style.height = 45;
 text2.style.color = "red";
-text2.innerHTML = "축구공을 클릭하신 후 드래그해서 날리세요.";
+text2.innerHTML = "샐리를 클릭하신 후 드래그해서 날리세요.";
 text2.style.top = 0 + 'px';
 text2.style.left = 100 + 'px';
 document.body.appendChild(text2);
@@ -127,10 +127,9 @@ var NULL_CENTER = {x:null, y:null};
 	var needToDraw = true;
 	var box = new bTest(60, false);
 	var drawer = null;
-	// var ballCount = 0;
-	// var reloadFlag = false;
-
-	var init
+	var ballCount = 0;
+	var reloadFlag = false;
+	var deadFlag = false;
 
 	var initialState = [
 	{id: "ground", x: 0, y: -window.innerHeight*2/SCALE, color: 'blue', halfWidth:window.innerWidth*30/SCALE, halfHeight : window.innerHeight/SCALE, depth :window.innerHeight*15/SCALE},
@@ -178,6 +177,7 @@ var NULL_CENTER = {x:null, y:null};
 				var corpse = e.data.g;
 				for(var i in corpse) {
 					world[corpse[i]].state = "dead";
+					deadFlag =true;
 				}
 
 				for (var id in bodiesState) {
@@ -188,11 +188,13 @@ var NULL_CENTER = {x:null, y:null};
 				break;
 			case 'end':
 				console.log("end");
-				if(confirm('게임이 종료되었습니다. 다시 하시겠습니까?')) {
-					location.reload(); 
-				} 
-				// ballCount++;
-				// reloadFlag = true;
+				ballCount++;
+				if(ballCount === 3 || deadFlag === true) {
+					if(confirm('게임이 종료되었습니다. 다시 하시겠습니까?')) {
+						location.reload(); 
+					}	 
+				}
+				reloadFlag = true;
 				break;  
 		}
 	}.bind(this);
@@ -201,7 +203,7 @@ var NULL_CENTER = {x:null, y:null};
 
 	//main 함수로 지속적으로 loop를 돌면서 상태를 업데이트 한 걸 그린다.
 	(function loop(timestamp) {
-		// if(reloadFlag === true) drawer.setBall("ball_" + ballCount, timestamp);
+		if(reloadFlag === true) drawer.setBall("ball_" + ballCount, timestamp);
 		if(needToDraw) {
 			needToDraw = false;
 			drawer.animate();

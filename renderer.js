@@ -71,7 +71,7 @@ function ThreeDraw(world) {
 	var onDocumentMouseDown = function(e) {
 		e.preventDefault();
 		getCurrentObject();
-		if(intersects[0].object.id === "ball_0") { //ball_0
+		if(intersects[0].object.id === "ball_" + ballCount) { //ball_0
 			ready = true;
 			if ( intersects.length > 0 ) {
 				if(startX === 0 && startY === 0) {
@@ -91,17 +91,17 @@ function ThreeDraw(world) {
 			var degreeAndPower = [];
 			degreeAndPower.push(calculateDegree(startX, startY, intersects[0].point.x, intersects[0].point.y) - 90);
 			degreeAndPower.push(calculateDistance(startX, startY,  intersects[0].point.x,  intersects[0].point.y)*1000);
-			worker.postMessage({'cmd': 'setGravity', 'msg':world, 'value' : degreeAndPower});
+			worker.postMessage({'cmd': 'setGravity', 'msg':world, 'value' : degreeAndPower, 'ballCount' : "ball_" + ballCount});
 			ready = false;
 		}
 	};
 
 	var onDocumentMouseMove = function(e) {
 		getCurrentObject();
-		if(intersects[0].object.id === "ball_0")  {
+		if(intersects[0].object.id === "ball_" + ballCount)  {
 			if(calculateDistance(startX, startY,  intersects[0].point.x,  intersects[0].point.y) < 50) {
-				world["ball_0"].x = intersects[0].point.x;
-				world["ball_0"].y = intersects[0].point.y;
+				world["ball_" + ballCount].x = intersects[0].point.x;
+				world["ball_" + ballCount].y = intersects[0].point.y;
 				scene.remove(LineMesh);
 				LineMesh = drawLine(startX, startY, intersects[0].point.x, intersects[0].point.y, "red", 5);
 				worker.postMessage({'cmd': 'mousemove', 'msg': world});
@@ -162,6 +162,7 @@ function ThreeDraw(world) {
 				var geometry = makeObject.Box(world[i].halfWidth, world[i].halfHeight, world[i].depth); //추후 마지막 인자를 넘겨주게 수정
 			}
 			material[i] = choiceMaterial(world[i].id);
+		
 			mesh = new THREE.Mesh(geometry, material[i]);
 			mesh.position.x = world[i].x;
 			mesh.position.y = world[i].y;
@@ -181,32 +182,40 @@ function ThreeDraw(world) {
 		document.body.appendChild(renderer.domElement );
 	};
 
-	// this.setBall = function(id, timeStemp) {
-	// 	var mesh = findObject(id);
-	// 	if(movedBallX === null) movedBallX = mesh.position.x;
-	// 	if(movedBallY === null) movedBallY = mesh.position.y;
+	this.setBall = function(id, timeStemp) {
+		var mesh = findObject(id);
+		if(movedBallX === null) movedBallX = mesh.position.x;
+		if(movedBallY === null) movedBallY = mesh.position.y;
 		
-	// 	moveObjectFromPointToPoint(id, movedBallX, movedBallY, resetX, resetY, timeStemp);
-	// }
+		moveObjectFromPointToPoint(id, movedBallX, movedBallY, resetX, resetY, timeStemp);
+	}
 
-	// moveObjectFromPointToPoint = function(id, startX, startY, endX, endY, timeStemp) {
-	// 	if(beforeTime === null) beforeTime = timeStemp;
-	// 	var progress = timeStemp - beforeTime;
-	// 	var pieceOfX = (endX-startX)/1000;
-	// 	var pieceOfY = (endY-startY)/1000;
-	// 	console.log(objects[2]);
-	// 	objects[2].position.x = objects[2].position.x+pieceOfX*progress;
-	// 	objects[2].position.y = objects[2].position.x+pieceOfY*progress;
+	var moveObjectFromPointToPoint = function(id, startX, startY, endX, endY, timeStemp) {
 		
-	// 	if(progress > 1000) {
-	// 		objects[2].position.x = endX;
-	// 		objects[2].position.y = endY;
-	// 		beforeTime = null;
-	// 		reloadFlag = false;
-	// 	}
+		var mesh = findObject(id);
+		if(beforeTime === null) beforeTime = timeStemp;
+		var progress = timeStemp - beforeTime;
+		console.log("progress : " + progress);
+		var pieceOfX = (endX-startX)/1000;
+		var pieceOfY = (endY-startY)/1000;
+		console.log(movedBallX+pieceOfX*progress);
+		mesh.position.x = movedBallX+pieceOfX*progress;
+		mesh.position.y = movedBallY+pieceOfY*progress;
+		world[id].x = movedBallX+pieceOfX*progress;
+		world[id].y = movedBallY+pieceOfY*progress;
+		
+		if(progress > 1000) {
+			mesh.position.x = endX;
+			mesh.position.y = endY;
+			beforeTime = null;
+			reloadFlag = false;
+			movedBallX = null;
+			movedBallY = null;
+			worker.postMessage({'cmd': 'bodies', 'msg': world});
+		}
 
-	// 	renderer.render(scene, camera);
-	// };
+		renderer.render(scene, camera);
+	};
 
 	var drawStartCircle = function(xPos, yPos) {
 		var geometry = makeObject.Sphere(60, 40, 40);
@@ -236,10 +245,15 @@ function ThreeDraw(world) {
 
 				scene.remove(deleteTarget);
 			}
-			objects[count].position.x = world[i].x;
-			objects[count].position.y = world[i].y;
-			objects[count].rotation.z = world[i].angle;
-			++count;
+			if(reloadFlag === true && world[i].id === "ball_" + ballCount) {
+				++count;
+				this.render();
+			} else {
+				objects[count].position.x = world[i].x;
+				objects[count].position.y = world[i].y;
+				objects[count].rotation.z = world[i].angle;
+				++count;
+			}
 		}
 		this.render();
 	};
