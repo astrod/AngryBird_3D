@@ -35,12 +35,12 @@ function ThreeDraw(world) {
 	var vector = null;
 	var raycaster = null;
 	var LineMesh = null;
-	EventHandler = function() {
+	var EventHandler = function() {
 		document.addEventListener("keydown", moveCamera);
 		document.addEventListener( 'mousedown', onDocumentMouseDown, false );
 		document.addEventListener( 'mouseup', onDocumentMouseUp, false );
 	};
-	moveCamera = function(e) {
+	var moveCamera = function(e) {
 		if(e.keyCode === LEFT) {
 			camera.position.x += -cameraSpeed;
 		} else if(e.keyCode === UP) {
@@ -68,7 +68,7 @@ function ThreeDraw(world) {
 		}
 	};
 
-	onDocumentMouseDown = function(e) {
+	var onDocumentMouseDown = function(e) {
 		e.preventDefault();
 		getCurrentObject();
 		if(intersects[0].object.id === "ball_0") { //ball_0
@@ -84,7 +84,7 @@ function ThreeDraw(world) {
 		}	
 	};
 
-	onDocumentMouseUp = function(e) {
+	var onDocumentMouseUp = function(e) {
 		getCurrentObject();
 		if(ready === true && intersects[0].object.id) {
 			window.removeEventListener('mousemove', onDocumentMouseMove, false);
@@ -96,7 +96,7 @@ function ThreeDraw(world) {
 		}
 	};
 
-	onDocumentMouseMove = function(e) {
+	var onDocumentMouseMove = function(e) {
 		getCurrentObject();
 		if(intersects[0].object.id === "ball_0")  {
 			if(calculateDistance(startX, startY,  intersects[0].point.x,  intersects[0].point.y) < 50) {
@@ -109,18 +109,18 @@ function ThreeDraw(world) {
 		}	
 	};
 
-	calculateDistance = function(preX, preY, curX, curY) {
+	var calculateDistance = function(preX, preY, curX, curY) {
 		return Math.sqrt((curX-preX)*(curX-preX)+(curY-preY)*(curY-preY));
 	};
 
-	calculateDegree = function(preX, preY, curX, curY) {
+	var calculateDegree = function(preX, preY, curX, curY) {
 			var conversionX = curX - preX;
 			var conversionY = curY - preY;
 			var innerProductValue = (conversionX*0 + conversionY*(-1))/Math.sqrt((conversionX*conversionX)+(conversionY*conversionY));
 			return Math.degrees(Math.acos(innerProductValue));
 	};
 
-	getCurrentObject = function(e) {
+	var getCurrentObject = function(e) {
 		vector = new THREE.Vector3( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1, 0.5 );
 		projector.unprojectVector( vector, camera );
 		raycaster = new THREE.Raycaster( camera.position, vector.sub( camera.position ).normalize() );
@@ -167,7 +167,6 @@ function ThreeDraw(world) {
 			mesh.position.y = world[i].y;
 			mesh.position.z = -50
 			mesh.id = world[i].id;
-			mesh.rotation.z = 0;
 			if(world[i].strength) {
 				canDeleted.push(mesh);
 			}
@@ -209,7 +208,7 @@ function ThreeDraw(world) {
 	// 	renderer.render(scene, camera);
 	// };
 
-	drawStartCircle = function(xPos, yPos) {
+	var drawStartCircle = function(xPos, yPos) {
 		var geometry = makeObject.Sphere(60, 40, 40);
 		var material = makeObject.getMaterial(0x050505, "white", 0x050505, 30);
 		material.opacity = 0.2;
@@ -221,7 +220,7 @@ function ThreeDraw(world) {
 		scene.add(mesh);
 	};
 
-	drawLine = function(startX, startY, endX, endY, color, width) {
+	var drawLine = function(startX, startY, endX, endY, color, width) {
 		geometry = new THREE.Geometry();
 		geometry.vertices.push(new THREE.Vector3( startX, startY), new THREE.Vector3( endX, endY));
 		var line = new THREE.Line( geometry, makeObject.Line(color, width));
@@ -248,24 +247,24 @@ function ThreeDraw(world) {
 		renderer.render(scene, camera );
 	};
 	
-	findDeletedObject = function(findId) {
+	var findDeletedObject = function(findId) {
 		for(var i in canDeleted) {
 			if(canDeleted[i].id === findId) return canDeleted[i];
 		}
 	};
 
-	findObject = function(findId) {
+	var findObject = function(findId) {
 		for(var i in objects) {
 			if(objects[i].id === findId) return objects[i];
 		}
 	}
 
-	choiceMaterial = function(id) {
+	var choiceMaterial = function(id) {
 		var splitedId = splitString(id);
 		return makeObject.getMaterialForTexture(0x050505, 'img/'+ splitedId + '.jpg', 0x555555, 30);
 	}
 
-	splitString = function(id) {
+	var splitString = function(id) {
 		return id.split("_")[0];
 	}
 
